@@ -5,6 +5,7 @@ from database import get_db
 from models import User
 from auth import get_password_hash, verify_password, create_access_token, get_current_user, oauth2_scheme, decode_access_token
 from fastapi.security import OAuth2PasswordRequestForm, OAuth2PasswordBearer
+from pydantic import BaseModel, EmailStr
 
 router = APIRouter()
 
@@ -24,7 +25,14 @@ class SignupRequest(BaseModel):
     role: str
 
 # ✅ Signup Route
-@router.post("/signup")
+class SignupRequest(BaseModel):
+    name: str
+    email: EmailStr
+    password: str
+    role: str
+
+# ✅ Signup Route
+@router.post("/signup", status_code=status.HTTP_201_CREATED)
 def signup(user: SignupRequest, db: Session = Depends(get_db)):
     existing_user = db.query(User).filter(User.email == user.email).first()
     if existing_user:
@@ -32,11 +40,12 @@ def signup(user: SignupRequest, db: Session = Depends(get_db)):
     
     hashed_password = get_password_hash(user.password)
     new_user = User(name=user.name, email=user.email, hashed_password=hashed_password, role=user.role)
+    
     db.add(new_user)
     db.commit()
     db.refresh(new_user)
-    return {"message": "User created successfully", "user_id": new_user.id}
-
+    
+    return {"message": "User created successfully! Please log in.", "user_id": new_user.id}
 # ✅ Login Route: Generates JWT Token
 @router.post("/token")
 def login(form_data: OAuth2PasswordRequestForm = Depends(), db: Session = Depends(get_db)):
